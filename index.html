@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>볼배틀 — 새 시스템 v0.1</title>
+<title>볼배틀 — 새 시스템 v0.2</title>
 <style>
 :root{color-scheme:dark;font-family:system-ui,sans-serif;background:#020617;color:#f8fafc}
 body{margin:0;padding:24px}main{max-width:1200px;margin:auto}h1{font-size:24px}
@@ -8,12 +8,18 @@ body{margin:0;padding:24px}main{max-width:1200px;margin:auto}h1{font-size:24px}
 button{background:#1e293b;color:inherit;border:1px solid #475569;border-radius:6px;padding:8px 12px;cursor:pointer}
 button:disabled{opacity:.45;cursor:default}.controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
 canvas{display:block;width:100%;background:#020617;border-radius:10px}.muted{color:#94a3b8;font-size:14px}.card{margin:12px 0;padding:12px;background:#1e293b;border-radius:8px}
-progress{width:100%;accent-color:#facc15}.hp{accent-color:#4ade80}
+table{border-collapse:collapse;font-size:13px}td,th{border:1px solid #475569;padding:8px;white-space:nowrap}.card button{width:100%;text-align:left}dialog{max-width:500px;border:1px solid #475569;border-radius:12px}progress{width:100%;accent-color:#facc15}.hp{accent-color:#4ade80}
 @media(max-width:760px){body{padding:12px}.layout{grid-template-columns:1fr}}
 #arenaPanel:fullscreen{background:#020617;display:flex;flex-direction:column;justify-content:center}
-</style></head><body><main><h1>볼배틀 — 새 시스템 <small>v0.1</small></h1>
-<div class="layout"><aside class="panel"><h2>캐릭터 도감</h2><div id="roster"></div></aside>
+</style></head><body><main><h1>볼배틀 — 새 시스템 <small>v0.2</small></h1>
+<div class="layout"><aside class="panel"><h2>캐릭터 도감</h2><div class="controls"><button id="soloModeBtn">개인전</button><button id="teamModeBtn">팀전</button></div><div class="controls" id="filters"><button data-filter="전체">전체</button><button data-filter="영화">영화</button><button data-filter="애니">애니</button><button data-filter="게임">게임</button></div><div id="roster"></div><h3>선택된 참가자</h3><div id="selection"></div><div class="controls"><button id="clearSelectionBtn">선택 해제</button><button id="selectAllBtn">전원 참가</button></div></aside>
 <section class="panel" id="arenaPanel"><div id="status">전투 준비 · 0.0초</div>
 <div class="controls"><button id="start" disabled>전투 시작</button><button id="pause" disabled>일시정지</button><button id="reset">리셋</button><button id="speed">1배속</button><button id="dark">어두운 장</button><button id="light">하얀 장</button><button id="fullscreen">전체 화면</button></div>
-<canvas id="arena" width="800" height="600" aria-label="전투장"></canvas><div id="actors"></div><h3>전투 로그</h3><div id="log" class="muted"></div></section></div>
+<div class="controls"><button id="randomBtn">랜덤 5명</button><button id="bossBtn">랜덤 1대1</button><button id="soundBtn">효과음 끄기</button><button id="volumeBtn">볼륨 60%</button></div>
+<div class="controls"><button id="quickSimAll50Btn">1인 전체 테스트 · 각 50전</button><button id="fullMatrix30Btn">전체 테스트 · 각 50전</button><button id="quickSim100Btn">1대1 100전</button><button id="cancelSimBtn" hidden>테스트 중단</button></div>
+<div class="controls"><button id="copyMatchupBtn">전적 복사(0)</button><button id="resetMatchupBtn">전적 리셋</button><button id="patchNoteBtn">패치노트 보기</button></div>
+<p class="muted">1인 전체는 선택한 1명과 나머지 전원, 전체는 모든 조합을 각각 50전 진행합니다. 1대1은 선택한 2명으로 100전 진행합니다.</p><div id="message" role="status" class="muted"></div><div id="simProgress" role="status"></div>
+<canvas id="arena" width="800" height="600" aria-label="전투장"></canvas><div id="actors"></div><h3>전투 로그</h3><div id="log" class="muted"></div><h3>상성표</h3><div id="matrix" style="overflow:auto"></div><h3>누적 전적</h3><div id="history" class="muted"></div>
+<dialog id="damageDialog"><h3 id="damageTitle"></h3><p id="damageText"></p><button id="damageClose">닫기</button></dialog>
+<dialog id="patchDialog"><h3>v0.2 패치노트</h3><p>전체 조합 50전, 1인 전체 50전, 1대1 100전, 전적 복사·리셋, 상성표, 개인전·팀전, 랜덤 선택, 음량 설정 및 피해량 확인 기능 복원.</p><button id="patchClose">닫기</button></dialog></section></div>
 </main><script type="module" src="./src/main.js"></script></body></html>
