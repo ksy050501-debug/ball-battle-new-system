@@ -1,3 +1,4 @@
+import {ELEMENTS, ELEMENT_ORDER, elementName, elementColor} from "./elements.js";
 import {CHARACTERS} from "./characters.js";
 import {SLOTS} from "./combat.js";
 import {createWorld,stepWorld,STEP} from "./world.js";
@@ -66,7 +67,7 @@ function renderRoster(){
       else{if(!previous)selections.set(d.id,"A");else if(previous==="A")selections.set(d.id,"B");else selections.delete(d.id);}
       soundEffect();renderSelection();
     };
-    const stats=document.createElement("div");stats.className="muted";stats.textContent="HP "+d.maxHp+" · 방어 "+d.armor+" · 마저 "+d.magicResist+" · "+d.element;
+    const stats=document.createElement("div");stats.className="muted";stats.textContent="HP "+d.maxHp+" · 방어 "+d.armor+" · 마저 "+d.magicResist+" · "+elementName(d.element);
     card.append(button,stats);$("roster").append(card);
   }renderSelection();
 }
@@ -182,7 +183,7 @@ function frame(timestamp){
   for(let x=0;x<=width;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,height);ctx.stroke();}
   for(let y=0;y<=height;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y);ctx.stroke();}
   for(const a of world.actors.filter(a=>a.alive)){
-    ctx.fillStyle=a.color||"#60a5fa";ctx.beginPath();ctx.arc(a.x,a.y,a.radius,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=a.color||elementColor(a.element);ctx.beginPath();ctx.arc(a.x,a.y,a.radius,0,Math.PI*2);ctx.fill();
     ctx.fillStyle=light?"#0f172a":"#f8fafc";ctx.textAlign="center";ctx.font="13px sans-serif";ctx.fillText(a.name,a.x,a.y+a.radius+16);
     ctx.fillStyle="#334155";ctx.fillRect(a.x-22,a.y-a.radius-10,44,4);ctx.fillStyle="#4ade80";ctx.fillRect(a.x-22,a.y-a.radius-10,44*a.hp/a.maxHp,4);
   }
@@ -190,4 +191,16 @@ function frame(timestamp){
   if(timestamp-lastStatus>100){renderStatus();lastStatus=timestamp;}
   requestAnimationFrame(frame);
 }
-renderRoster();renderSelection();renderHistory();syncButtons();renderStatus();requestAnimationFrame(frame);
+function renderElements(){
+  const panel=$("elementLegend");
+  const description=document.createElement("p");description.className="muted";
+  description.textContent="물 → 불 → 풀 → 땅 → 번개 → 물 · 화살표 방향으로 유리 (피해 1.15배), 역방향 0.85배, 나머지 1배";
+  panel.append(description);
+  for(const id of ELEMENT_ORDER){
+    const info=ELEMENTS[id],badge=document.createElement("span");
+    badge.className="elementBadge";badge.style.borderColor=info.color;
+    badge.textContent=info.name;badge.title="강점: "+elementName(info.strongAgainst)+" / 약점: "+elementName(info.weakAgainst);
+    panel.append(badge);
+  }
+}
+renderElements();renderRoster();renderSelection();renderHistory();syncButtons();renderStatus();requestAnimationFrame(frame);

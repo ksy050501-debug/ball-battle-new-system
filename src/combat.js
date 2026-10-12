@@ -1,5 +1,6 @@
+import {ELEMENTS, ELEMENT_ORDER} from "./elements.js";
 export const RULES = {
-  elements: ["element-1", "element-2", "element-3", "element-4", "element-5"],
+  elements: ELEMENT_ORDER,
   favorable: 1.15, unfavorable: 0.85, neutral: 1
 };
 export const SLOTS = ["Q", "W", "E", "R"];
@@ -9,10 +10,11 @@ function finite(value, name) {
   return value;
 }
 export function elementMultiplier(attack, defense) {
-  const a = RULES.elements.indexOf(attack), d = RULES.elements.indexOf(defense);
-  if (a < 0 || d < 0) throw new TypeError("Unknown element");
-  const offset = (d - a + 5) % 5;
-  return offset === 0 ? RULES.neutral : offset <= 2 ? RULES.favorable : RULES.unfavorable;
+  if (!Object.hasOwn(ELEMENTS, attack) || !Object.hasOwn(ELEMENTS, defense))
+    throw new TypeError("Unknown element");
+  if (ELEMENTS[attack].strongAgainst === defense) return RULES.favorable;
+  if (ELEMENTS[attack].weakAgainst === defense) return RULES.unfavorable;
+  return RULES.neutral;
 }
 export function damageAmount(target, hit) {
   finite(hit.amount, "damage");
