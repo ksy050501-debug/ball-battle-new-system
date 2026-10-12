@@ -36,19 +36,25 @@ export function createActor(def, id, x, y) {
   return {
     ...def, id, x, y, radius: def.radius ?? 18, hp: def.maxHp, alive: true,
     direction: Math.random() * Math.PI * 2, cc: [], immunity: new Set(),
-    action: null, forced: null, cooldowns: Object.fromEntries(SLOTS.map(s => [s, 0])),
+    action: null, forced: null, dash: null, channel: null, shields: [], cooldowns: Object.fromEntries(SLOTS.map(s => [s, 0])),
     damageDealt: 0, damageTaken: 0
   };
 }
 export function clearTransient(actor) {
-  actor.cc = []; actor.action = null; actor.forced = null;
+  actor.cc = []; actor.action = null; actor.forced = null; actor.dash = null; actor.channel = null; actor.shields = [];
 }
 export function applyDamage(source, target, hit, now) {
   if (!target.alive || target.immunity.has("damage")) return 0;
-  const actual = Math.min(target.hp, damageAmount(target, hit));
+  let remaining = damageAmount(target, hit), absorbed = 0;
+  target.shields = (target.shields || []).filter(s => s.until > now && s.amount > 0);
+  for (const shield of target.shields) {
+    const blocked = Math.min(shield.amount, remaining);
+    shield.amount -= blocked; remaining -= blocked; absorbed += blocked;
+  }
+  const actual = Math.min(target.hp, remaining);
   target.hp = Math.max(0, target.hp - actual);
   target.damageTaken += actual;
-  if (source && source !== target && target.kind !== "neutral") source.damageDealt += actual;
+  if (source && source !== target && target.kind !== "neutral") source.damageDealt += actual + absorbed;
   if (target.hp === 0) { target.alive = false; clearTransient(target); }
   return actual;
 }
@@ -68,6 +74,8 @@ export function applyCC(actor, type, duration, now, strength = 0) {
   }
   if (type === "stun" || type === "silence"
     || (type === "root" && actor.action?.skill.movement)) actor.action = null;
+  if (type === "stun" || type === "silence") actor.channel = null;
+  if (type === "stun" || type === "root") actor.dash = null;
   return true;
 }
 export function movementSpeed(actor, now) {
@@ -78,13 +86,13 @@ export function movementSpeed(actor, now) {
 export function forceMove(actor, vx, vy, duration, now) {
   finite(vx, "vx"); finite(vy, "vy"); finite(duration, "duration");
   if (!actor.alive || duration <= 0 || actor.immunity.has("displacement")) return false;
-  actor.action = null;
+  actor.action = null; actor.channel = null; actor.dash = null;
   actor.forced = {vx, vy, until: now + duration};
   return true;
 }
 export function trySkill(actor, slot, target, world) {
   const skill = actor.skills[slot], now = world.time;
-  if (!actor.alive || !skill || actor.action || actor.forced || actor.cooldowns[slot] > 0
+  if (!actor.alive || !skill || actor.action || actor.channel || actor.dash || actor.forced || actor.cooldowns[slot] > 0
     || hasCC(actor, "stun", now) || hasCC(actor, "silence", now)
     || (skill.movement && hasCC(actor, "root", now))) return false;
   if (!target?.alive || (skill.range != null
@@ -92,12 +100,14 @@ export function trySkill(actor, slot, target, world) {
     || (skill.canUse && !skill.canUse(actor, target, world))) return false;
   actor.cooldowns[slot] = skill.cooldown;
   actor.action = {slot, skill, target, finish: now + skill.castTime};
+  world.log?.(actor.name + " · " + slot + " " + (skill.name || ""));
   return true;
 }
 export function updateActor(actor, dt, world) {
   if (!actor.alive) return;
   const now = world.time;
   actor.cc = actor.cc.filter(e => e.until > now);
+  actor.shields = actor.shields.filter(s => s.until > now && s.amount > 0);
   for (const slot of SLOTS) actor.cooldowns[slot] = Math.max(0, actor.cooldowns[slot] - dt);
   if (actor.forced?.until <= now) actor.forced = null;
   if (actor.action && now >= actor.action.finish) {
@@ -105,10 +115,22 @@ export function updateActor(actor, dt, world) {
     actor.action = null;
     if (action.target.alive) action.skill.execute(actor, action.target, world);
   }
-  if (actor.forced) {
+  if (actor.channel) {
+    const channel = actor.channel;
+    if (now >= channel.next && channel.remaining > 0) {
+      channel.tick(actor, world);
+      channel.remaining--; channel.next += channel.interval;
+    }
+    if (channel.remaining === 0 && now >= channel.until) actor.channel = null;
+  }
+  if (actor.dash) {
+    const dash = actor.dash, elapsed = Math.min(dt, Math.max(0, dash.until - (now - dt)));
+    actor.x += dash.vx * elapsed; actor.y += dash.vy * elapsed;
+    if (now >= dash.until) { actor.dash = null; dash.onEnd?.(actor, world); }
+  } else if (actor.forced) {
     actor.x += actor.forced.vx * dt; actor.y += actor.forced.vy * dt;
   } else if (!hasCC(actor, "stun", now) && !hasCC(actor, "root", now)
-    && !(actor.action?.skill.stopMovement)) {
+    && !actor.channel && !(actor.action?.skill.stopMovement)) {
     const speed = movementSpeed(actor, now) * 60;
     actor.x += Math.cos(actor.direction) * speed * dt;
     actor.y += Math.sin(actor.direction) * speed * dt;

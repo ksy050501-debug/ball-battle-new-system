@@ -1,3 +1,4 @@
+import {drawFighter,drawAbilities} from "./render.js";
 import {ELEMENTS, ELEMENT_ORDER, elementName, elementColor} from "./elements.js";
 import {CHARACTERS} from "./characters.js";
 import {SLOTS} from "./combat.js";
@@ -34,7 +35,7 @@ function renderSelection(){
   for(const button of $("roster").querySelectorAll("button[data-id]")){
     const team=selections.get(button.dataset.id);
     button.setAttribute("aria-pressed",Boolean(team));
-    button.textContent=button.dataset.name+(team?(mode==="team"?" ["+team+"]":" ✓"):"");
+    button.querySelector(".characterName").textContent=button.dataset.name+(team?(mode==="team"?" ["+team+"]":" ✓"):"");
   }
   syncButtons();
 }
@@ -68,7 +69,12 @@ function renderRoster(){
       soundEffect();renderSelection();
     };
     const stats=document.createElement("div");stats.className="muted";stats.textContent="HP "+d.maxHp+" · 방어 "+d.armor+" · 마저 "+d.magicResist+" · "+elementName(d.element);
-    card.append(button,stats);$("roster").append(card);
+    const portrait=document.createElement("canvas");portrait.width=100;portrait.height=80;portrait.style.width="100px";
+    drawFighter(portrait.getContext("2d"),d,50,43,30);button.prepend(portrait);
+    const characterName=document.createElement("span");characterName.className="characterName";button.append(characterName);
+    const details=document.createElement("div");details.className="muted";
+    for(const slot of SLOTS){const line=document.createElement("p");const skill=d.skills[slot];line.textContent=slot+" "+skill.name+" · "+skill.cooldown+"초 · "+skill.description;details.append(line);}
+    card.append(button,stats,details);$("roster").append(card);
   }renderSelection();
 }
 $("filters").onclick=e=>{const value=e.target.dataset.filter;if(value){filter=value;renderRoster();}};
@@ -87,7 +93,7 @@ $("reset").onclick=resetWorld;
 $("start").onclick=()=>{
   const picks=chosen();if(picks.length<2||!unlocked())return;
   if(mode==="team"&&new Set(picks.map(d=>selections.get(d.id))).size<2){message("A팀과 B팀에 참가자를 배정하세요.");return;}
-  world=createWorld(picks,{mode,teams:selections,log:addLog});canvas.width=world.width;canvas.height=world.height;
+  world=createWorld(picks,{mode,teams:selections,log:addLog,onDamage:()=>soundEffect()});canvas.width=world.width;canvas.height=world.height;
   accumulator=0;roundRecorded=false;running=true;$("log").replaceChildren();message("");soundEffect();syncButtons();
 };
 $("pause").onclick=()=>{if(simBusy||world.result||!world.actors.length)return;running=!running;accumulator=0;syncButtons();};
@@ -117,7 +123,8 @@ function renderStatus(){
     const title=document.createElement("button");title.textContent=a.name+(mode==="team"?" ["+a.team+"]":"")+" · HP "+Math.ceil(a.hp)+"/"+a.maxHp;
     title.onclick=()=>{$("damageTitle").textContent=a.name+" 피해량";$("damageText").textContent="준 피해 "+Math.round(a.damageDealt)+" · 받은 피해 "+Math.round(a.damageTaken);$("damageDialog").showModal();};
     const hp=document.createElement("progress");hp.className="hp";hp.max=a.maxHp;hp.value=a.hp;card.append(title,hp);
-    for(const slot of SLOTS){const label=document.createElement("div");label.textContent=slot+" · "+a.cooldowns[slot].toFixed(1)+"초";
+    const shield=a.shields.reduce((total,s)=>total+s.amount,0);if(shield>0){const label=document.createElement("div");label.textContent="보호막 "+Math.ceil(shield);label.style.color="#7dd3fc";card.append(label);}
+    for(const slot of SLOTS){const label=document.createElement("div");label.textContent=slot+" "+a.skills[slot].name+" · "+a.cooldowns[slot].toFixed(1)+"초";
       const bar=document.createElement("progress");bar.max=1;bar.value=a.skills[slot].cooldown?1-a.cooldowns[slot]/a.skills[slot].cooldown:1;card.append(label,bar);}
     $("actors").append(card);
   }
@@ -141,7 +148,7 @@ const yieldUI=()=>new Promise(resolve=>setTimeout(resolve,0));
 async function simulatePair(a,b,count,label){
   const score=createScore(a,b);
   for(let round=0;round<count;round++){
-    const match=createWorld([a,b]);let steps=0;
+    const match=createWorld([a,b],{visuals:false});let steps=0;
     while(!match.result){
       stepWorld(match);
       if(++steps%600===0){$("simProgress").textContent=label+" · "+(round+1)+"/"+count+"전 · "+match.time.toFixed(0)+"초";await yieldUI();if(cancelSim)return null;}
@@ -182,8 +189,9 @@ function frame(timestamp){
   ctx.strokeStyle=light?"#e2e8f0":"#1e293b";ctx.lineWidth=1;
   for(let x=0;x<=width;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,height);ctx.stroke();}
   for(let y=0;y<=height;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y);ctx.stroke();}
+  drawAbilities(ctx,world);
   for(const a of world.actors.filter(a=>a.alive)){
-    ctx.fillStyle=a.color||elementColor(a.element);ctx.beginPath();ctx.arc(a.x,a.y,a.radius,0,Math.PI*2);ctx.fill();
+    drawFighter(ctx,a);
     ctx.fillStyle=light?"#0f172a":"#f8fafc";ctx.textAlign="center";ctx.font="13px sans-serif";ctx.fillText(a.name,a.x,a.y+a.radius+16);
     ctx.fillStyle="#334155";ctx.fillRect(a.x-22,a.y-a.radius-10,44,4);ctx.fillStyle="#4ade80";ctx.fillRect(a.x-22,a.y-a.radius-10,44*a.hp/a.maxHp,4);
   }

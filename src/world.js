@@ -1,7 +1,8 @@
+import {updateAbilities} from "./abilities.js";
 import {createActor,updateActor,trySkill,resolveCollision,SLOTS} from "./combat.js";
 export const STEP = 1/60;
 export const MATCH_LIMIT = 500;
-export function createWorld(definitions, {mode="solo",teams=new Map(),log=()=>{},onDamage=()=>{}}={}) {
+export function createWorld(definitions, {mode="solo",teams=new Map(),log=()=>{},onDamage=()=>{},visuals=true}={}) {
   const count=definitions.length;
   const width=Math.max(800,Math.ceil(Math.sqrt(count/2))*400),height=Math.max(600,Math.round(width*.75));
   const actors=definitions.map((def,i)=>{
@@ -9,12 +10,13 @@ export function createWorld(definitions, {mode="solo",teams=new Map(),log=()=>{}
     const actor=createActor(def,i,width/2+Math.cos(angle)*width*.3,height/2+Math.sin(angle)*height*.3);
     actor.baseId=def.id;actor.team=mode==="team"?teams.get(def.id):def.id;return actor;
   });
-  return {time:0,width,height,actors,mode,log,onDamage,result:null};
+  return {time:0,width,height,actors,mode,log,onDamage,visuals,projectiles:[],burns:[],effects:[],result:null};
 }
 export function stepWorld(world,dt=STEP) {
   if(world.result)return;
   world.time+=dt;
   for(const actor of world.actors)updateActor(actor,dt,world);
+  updateAbilities(world,dt);
   let alive=world.actors.filter(a=>a.alive);
   for(let i=0;i<alive.length;i++)for(let j=i+1;j<alive.length;j++)resolveCollision(alive[i],alive[j]);
   for(const actor of alive){
